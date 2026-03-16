@@ -371,12 +371,20 @@ FINANCIALS (as of Q4 2025 / FY2025):
 - 2026 adj. EBITDA margin target: ~40%
 - 2026 CapEx guidance: $16-20B
 - Active pipeline: >$4B, deal sizes increasing, contract terms lengthening
+- Contracted backlog: $45B+ (Microsoft $19.4B + Meta up to $27B + others)
 - Net loss Q4 2025: -$249.6M (investment phase, expected)
 
 MAJOR CONTRACTS:
 - Microsoft: $19.4B, 5-year deal for 100K+ GB300 chips
-- Meta: $3B, 5-year infrastructure deal
+- Meta: UP TO ~$27B total, 5-year AI infrastructure agreement (March 2026):
+  * $12B in dedicated GPU capacity across multiple locations
+  * Meta option to purchase up to $15B additional compute from upcoming Nebius clusters
+  * Based on one of the first large-scale deployments of NVIDIA Vera Rubin platform
+  * Capacity delivery begins early 2027
+  * Nebius intends to sell optional capacity to third-party customers first, Meta buys remaining
+  * Expands an existing collaboration between the companies (previously $3B deal)
 - ALL current capacity is SOLD OUT
+- Total contracted backlog now exceeds $45B+
 
 INFRASTRUCTURE:
 - Current: ~170 MW active (end of 2025)
@@ -436,14 +444,17 @@ KEY RISKS:
 7. Geopolitical: Yandex heritage may create perception issues with some customers
 
 UPCOMING CATALYSTS:
+- NEW: Meta $27B deal announced March 2026 — validates demand & NVIDIA Vera Rubin platform
 - April 29, 2026: Q1 2026 earnings
+- Early 2027: Meta deal capacity delivery begins
 - H2 2026: Missouri data center power delivery
 - 2026: NVIDIA Rubin/Vera chip deliveries begin
 - TBD: ClickHouse IPO (widely expected)
 - TBD: Avride potential IPO/spin-off
 
 COMPETITIVE LANDSCAPE:
-vs CoreWeave (CRWV): CRWV larger backlog ($56B) but 4.8x debt-to-equity with $34B off-balance-sheet leases.
+vs CoreWeave (CRWV): CRWV backlog $56B vs Nebius $45B+ (gap closing fast after Meta deal).
+  CRWV has 4.8x debt-to-equity with $34B off-balance-sheet leases.
   Nebius has far stronger balance sheet ($6B+ cash vs CRWV's leverage). Nebius prices 50%+ lower.
 vs Lambda Labs: Smaller, developer-focused, less enterprise-grade
 vs Hyperscalers (AWS/Azure/GCP): Nebius competes on price, specialized AI optimization, and latency

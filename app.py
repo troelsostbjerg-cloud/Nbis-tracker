@@ -4,6 +4,7 @@ import feedparser
 import anthropic
 import pandas as pd
 from datetime import datetime, timedelta
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import json
 import re
 import math
@@ -141,17 +142,15 @@ def fetch_all_data():
         "sector": info.get("sector", "Technology"),
     }
 
-    # Peer data
-    peers = {}
-    for sym in PEERS:
+    # Peer data — fetch in parallel
+    def fetch_peer(sym):
         try:
             t = yf.Ticker(sym)
             pi = t.info
-            ph = t.history(period="5d")
             p_price = pi.get("currentPrice") or pi.get("regularMarketPrice") or 0
             p_prev  = pi.get("previousClose") or pi.get("regularMarketPreviousClose") or p_price
             p_chg   = ((p_price - p_prev) / p_prev * 100) if p_prev else 0
-            peers[sym] = {
+            return sym, {
                 "price": p_price, "change_pct": p_chg,
                 "market_cap": pi.get("marketCap"),
                 "ev_revenue": pi.get("enterpriseToRevenue"),
@@ -159,22 +158,32 @@ def fetch_all_data():
                 "revenue_growth": pi.get("revenueGrowth"),
             }
         except Exception:
-            peers[sym] = {"price": 0, "change_pct": 0, "market_cap": 0}
+            return sym, {"price": 0, "change_pct": 0, "market_cap": 0}
 
-    # Macro data
-    macro = {}
-    for sym, label in MACRO_SYMS.items():
+    def fetch_macro_sym(sym, label):
         try:
             t = yf.Ticker(sym)
             mh = t.history(period="5d")
             if len(mh) >= 2:
                 curr = float(mh["Close"].iloc[-1])
                 prev = float(mh["Close"].iloc[-2])
-                macro[label] = {"value": curr, "change_pct": ((curr - prev) / prev * 100)}
+                return label, {"value": curr, "change_pct": ((curr - prev) / prev * 100)}
             else:
-                macro[label] = {"value": float(mh["Close"].iloc[-1]) if len(mh) > 0 else 0, "change_pct": 0}
+                return label, {"value": float(mh["Close"].iloc[-1]) if len(mh) > 0 else 0, "change_pct": 0}
         except Exception:
-            macro[label] = {"value": 0, "change_pct": 0}
+            return label, {"value": 0, "change_pct": 0}
+
+    peers = {}
+    macro = {}
+    with ThreadPoolExecutor(max_workers=8) as executor:
+        peer_futures = [executor.submit(fetch_peer, sym) for sym in PEERS]
+        macro_futures = [executor.submit(fetch_macro_sym, sym, label) for sym, label in MACRO_SYMS.items()]
+        for f in as_completed(peer_futures + macro_futures):
+            key, val = f.result()
+            if key in PEERS:
+                peers[key] = val
+            else:
+                macro[key] = val
 
     # ── Price target model ──────────────────────────────────────────────────
     # Blended approach:
@@ -270,19 +279,22 @@ def fetch_news():
         "https://news.google.com/rss/search?q=AI+datacenter+GPU+infrastructure+2025&hl=en-US&gl=US&ceid=US:en",
         "https://news.google.com/rss/search?q=Toloka+OR+TripleTen+OR+Avride+AI&hl=en-US&gl=US&ceid=US:en",
     ]
-    articles = []
-    for url in feeds:
+    def parse_feed(url):
         try:
             feed = feedparser.parse(url)
-            for e in feed.entries[:5]:
-                articles.append({
-                    "title":     e.get("title", ""),
-                    "summary":   e.get("summary", "")[:400],
-                    "published": e.get("published", ""),
-                    "link":      e.get("link", ""),
-                })
+            return [{
+                "title":     e.get("title", ""),
+                "summary":   e.get("summary", "")[:400],
+                "published": e.get("published", ""),
+                "link":      e.get("link", ""),
+            } for e in feed.entries[:5]]
         except Exception:
-            pass
+            return []
+
+    articles = []
+    with ThreadPoolExecutor(max_workers=5) as executor:
+        for result in executor.map(parse_feed, feeds):
+            articles.extend(result)
     return articles[:25]
 
 
@@ -534,7 +546,7 @@ Return ONLY valid JSON:
 
     response = client.messages.create(
         model="claude-sonnet-4-6",
-        max_tokens=8000,
+        max_tokens=4096,
         messages=[{"role": "user", "content": prompt}],
     )
     text = response.content[0].text
@@ -567,10 +579,13 @@ st.markdown(f'<div class="ticker-header">◆ NBIS</div>', unsafe_allow_html=True
 st.caption(f"Nebius Group N.V. · AI Infrastructure · {st.session_state.get('last_update', 'Ikke opdateret endnu')}")
 
 if st.button("Opdater analyse", use_container_width=True, type="primary"):
-    with st.spinner("Henter markedsdata, nyheder og kører analyse..."):
-        try:
+    try:
+        with st.status("Kører analyse...", expanded=True) as status:
+            st.write("📊 Henter markedsdata...")
             stock, peers, macro = fetch_all_data()
+            st.write("📰 Henter nyheder...")
             news = fetch_news()
+            st.write("🤖 Claude analyserer (10-20 sek)...")
             result = run_analysis(stock, peers, macro, news)
             if result:
                 st.session_state["stock"]       = stock
@@ -580,9 +595,12 @@ if st.button("Opdater analyse", use_container_width=True, type="primary"):
                 st.session_state["result"]      = result
                 st.session_state["last_update"] = datetime.now().strftime("%d. %b %Y — %H:%M")
                 st.cache_data.clear()
+                status.update(label="Analyse færdig!", state="complete")
                 st.rerun()
-        except Exception as e:
-            st.error(f"Fejl: {e}")
+            else:
+                status.update(label="Analyse fejlede", state="error")
+    except Exception as e:
+        st.error(f"Fejl: {e}")
 
 if "result" not in st.session_state:
     st.markdown("---")
